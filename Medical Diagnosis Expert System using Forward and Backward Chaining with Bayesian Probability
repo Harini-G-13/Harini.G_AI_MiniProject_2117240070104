@@ -1,0 +1,143 @@
+import streamlit as st
+import math
+
+# ---------------------------------
+# Page Setup
+# ---------------------------------
+st.set_page_config(page_title="Medical Diagnosis AI", layout="wide")
+
+# Custom CSS for blue-white theme
+st.markdown("""
+    <style>
+    body {
+        background-color: #f0f8ff;  /* Light blue-white */
+    }
+    .stApp {
+        background-color: #f0f8ff;
+    }
+    h1, h2, h3, h4, h5 {
+        color: #004080;
+    }
+    .stProgress > div > div > div > div {
+        background-color: #0073e6;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+st.title("🩺 Medical Diagnosis AI System")
+st.markdown("### Intelligent Symptom Analyzer using Bayesian Probability")
+
+# ---------------------------------
+# Layout
+# ---------------------------------
+left_col, right_col = st.columns(2)
+
+# ---------------------------------
+# Left Panel: Input Section
+# ---------------------------------
+with left_col:
+    st.subheader("🧾 Enter Symptoms")
+
+    # Symptom list
+    symptoms_list = [
+        "Fever", "Headache", "Cough", "Sore throat", "Fatigue", "Chills",
+        "Nausea", "Vomiting", "Diarrhea", "Rash", "Joint pain", "Runny nose",
+        "Loss of smell", "Loss of taste", "Chest pain", "Abdominal pain", "Shortness of breath"
+    ]
+
+    selected_symptoms = st.multiselect("Select your symptoms", symptoms_list)
+    severity = st.slider("Severity level", 1, 10, 5)
+    duration = st.number_input("Duration (in days)", min_value=1, value=3)
+
+    st.markdown("---")
+
+    if st.button("🔍 Diagnose"):
+        if not selected_symptoms:
+            st.warning("Please select at least one symptom.")
+        else:
+            # -------------------------------
+            # Probabilistic reasoning
+            # -------------------------------
+            diseases = {
+                "Dengue": ["Fever", "Headache", "Joint pain", "Rash"],
+                "Malaria": ["Fever", "Chills", "Headache"],
+                "Flu": ["Fever", "Cough", "Fatigue", "Sore throat"],
+                "COVID-19": ["Cough", "Fatigue", "Loss of smell", "Loss of taste"],
+                "Typhoid": ["Fever", "Abdominal pain", "Fatigue", "Headache"],
+                "Food Poisoning": ["Vomiting", "Diarrhea", "Abdominal pain"],
+                "Pneumonia": ["Chest pain", "Cough", "Shortness of breath", "Fever"],
+                "Common Cold": ["Cough", "Runny nose", "Sore throat"]
+            }
+
+            # Bayesian-style probability estimation
+            base_prob = 0.1  # prior probability for all diseases
+            diagnosis_results = {}
+
+            for disease, symptoms in diseases.items():
+                matches = len(set(symptoms) & set(selected_symptoms))
+                total = len(symptoms)
+                if matches > 0:
+                    # P(Disease|Symptoms) ≈ (matches/total) * severity factor
+                    prob = (matches / total) * (severity / 10) * base_prob * 10
+                    diagnosis_results[disease] = min(prob, 1.0)  # keep under 1
+
+            # Normalize probabilities
+            if diagnosis_results:
+                total_prob = sum(diagnosis_results.values())
+                for disease in diagnosis_results:
+                    diagnosis_results[disease] /= total_prob
+
+                # Display results
+                st.subheader("🧮 Diagnosis Probabilities")
+                for disease, prob in sorted(diagnosis_results.items(), key=lambda x: x[1], reverse=True):
+                    percent = prob * 100
+                    st.progress(prob)
+                    st.write(f"**{disease}** — {percent:.2f}% likelihood")
+
+                most_likely = max(diagnosis_results, key=diagnosis_results.get)
+                st.success(f"✅ **Most likely disease:** {most_likely}")
+
+                st.markdown("### 📘 Mathematical Representation")
+                for disease, prob in diagnosis_results.items():
+                    st.latex(f"P({disease}|Symptoms) = {prob:.3f}")
+            else:
+                st.warning("No strong match found for the entered symptoms.")
+
+# ---------------------------------
+# Right Panel: Chatbot Section
+# ---------------------------------
+with right_col:
+    st.subheader("💬 Health Assistant Chatbot")
+
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+
+    user_input = st.text_input("Ask about any disease...")
+
+    if st.button("Send"):
+        if user_input:
+            msg = user_input.lower()
+            st.session_state.chat_history.append(("user", user_input))
+
+            response = "I'm not sure. Please ask about a specific disease."
+
+            if "dengue" in msg:
+                response = "🦟 Dengue: Caused by mosquito bites. High fever, headache, joint pain, and rash are common."
+            elif "malaria" in msg:
+                response = "🦠 Malaria: Caused by Plasmodium parasites. Symptoms include fever, chills, and headache."
+            elif "covid" in msg:
+                response = "😷 COVID-19: Viral infection with cough, fever, fatigue, and loss of smell/taste."
+            elif "flu" in msg:
+                response = "🤧 Flu: Viral illness causing fever, cough, sore throat, and fatigue."
+            elif "typhoid" in msg:
+                response = "🥵 Typhoid: Bacterial infection with prolonged fever, abdominal pain, and fatigue."
+            elif "pneumonia" in msg:
+                response = "🫁 Pneumonia: Lung infection causing chest pain, cough, and breathing difficulty."
+
+            st.session_state.chat_history.append(("bot", response))
+
+    for sender, msg in st.session_state.chat_history:
+        if sender == "user":
+            st.chat_message("user").markdown(msg)
+        else:
+            st.chat_message("assistant").markdown(msg)
